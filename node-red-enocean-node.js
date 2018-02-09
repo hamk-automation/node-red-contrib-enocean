@@ -1,6 +1,6 @@
 'use strict';
 
-module.exports = function (RED) {
+module.exports = function(RED) {
   // Configuration node
   function EnOceanConfig(n) {
     RED.nodes.createNode(this, n);
@@ -15,8 +15,6 @@ module.exports = function (RED) {
       timeout: 30
     });
 
-
-
     var node = this;
     // this.enocean = enocean;
 
@@ -26,15 +24,15 @@ module.exports = function (RED) {
       console.log(err);
     }
 
-    node.on('close', function () {
+    node.on('close', function() {
       node.enocean.close();
     });
 
-    node.enocean.on("error", function (error) {
+    node.enocean.on("error", function(error) {
       console.log(error);
     });
 
-    node.enocean.on("disconnect", function () {
+    node.enocean.on("disconnect", function() {
       // node.enocean.listen(node.serialport);
     });
   };
@@ -45,7 +43,9 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, n);
     var jsonObject = require(__dirname + "/knownSensors.json");
     //map to Array:
-    var knownsensorarray = Object.keys(jsonObject).map(function (key) { return jsonObject[key]; });
+    var knownsensorarray = Object.keys(jsonObject).map(function(key) {
+      return jsonObject[key];
+    });
 
     RED.httpAdmin.get('/knownsensors', function(req, res) {
       res.json(knownsensorarray || []);
@@ -58,45 +58,32 @@ module.exports = function (RED) {
     var server = RED.nodes.getNode(n.serialport);
 
     var node = this;
-    server.enocean.on("ready", function () {
-      node.status({
-        fill: 'green',
-        shape: "ring",
-        text: "connected"
-      });
+    server.enocean.on("ready", function() {
+      node.status({fill: 'green', shape: "ring", text: "connected"});
     });
 
-    node.on('close', function () {
+    node.on('close', function() {
       server.enocean.close();
     });
 
-    node.on('input', function (msg) {
+    node.on('input', function(msg) {
       // we can trigger a learning function
       server.enocean.startLearning();
-      server.enocean.on("learned", function (data) {
+      server.enocean.on("learned", function(data) {
         if (msg.payload) {
           data.title = msg.payload;
         }
-        node.status({
-          fill: 'green',
-          shape: "ring",
-          text: "Sensor teached in"
-        });
+        node.status({fill: 'green', shape: "ring", text: "Sensor teached in"});
         sendPayload(data);
       });
     });
 
     server.enocean.setMaxListeners(Infinity);
 
-
-    server.enocean.on("data", function (data) {
+    server.enocean.on("data", function(data) {
       // DATA ID means we have no teach in telegram
       if (!data.id) {
-        node.status({
-          fill: 'green',
-          shape: "ring",
-          text: "Data received"
-        });
+        node.status({fill: 'green', shape: "ring", text: "Data received"});
         //only react to incoming requests which are already learned in
         if (node.knownsensor) {
           //we can let all sensors through which are learned in or only selected
@@ -112,7 +99,11 @@ module.exports = function (RED) {
           } else {
             for (var k = 0; k < knownsensorarray.length; k++) {
               if (data.senderId === knownsensorarray[k].id) {
-                sendPayload(data);
+                var msgPayload = server.enocean.getData(knownsensorarray[k].eep, data.raw);
+                sendPayload({
+                  'rawData': data,
+                  'converted': server.enocean.getData(knownsensorarray[k].eep, data.raw)
+                });
               }
             }
           }
@@ -132,7 +123,7 @@ module.exports = function (RED) {
 
     }
 
-    server.enocean.on("error", function (error) {
+    server.enocean.on("error", function(error) {
       console.log(error);
       node.status({
         fill: 'red',
@@ -142,27 +133,15 @@ module.exports = function (RED) {
       node.error(error);
     });
 
-    server.enocean.on("close", function () {
-      node.status({
-        fill: 'red',
-        shape: "ring",
-        text: "No Connection to Serialport"
-      });
+    server.enocean.on("close", function() {
+      node.status({fill: 'red', shape: "ring", text: "No Connection to Serialport"});
     });
 
-    server.enocean.on("disconnect", function () {
-      node.status({
-        fill: 'yellow',
-        shape: "ring",
-        text: "Disconnected"
-      });
+    server.enocean.on("disconnect", function() {
+      node.status({fill: 'yellow', shape: "ring", text: "Disconnected"});
     });
 
-    node.status({
-      fill: 'yellow',
-      shape: "ring",
-      text: "Connecting..."
-    });
+    node.status({fill: 'yellow', shape: "ring", text: "Connecting..."});
 
   };
 
